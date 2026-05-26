@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AgentCore Runtime for House Agent
+
+Parameters:
+  ContainerImageUri:
+    Type: String
+    Description: ECR image URI for the agent container
+
+  UserPoolId:
+    Type: String
+    Description: Cognito User Pool ID for authentication
+
+  WebClientId:
+    Type: String
+    Description: Web client ID (Authorization Code flow - for browser sign-in)
+
+  M2MClientId:
+    Type: String
+    Description: M2M client ID (Client Credentials flow - for service-to-service)
+
+  KvsStreamName:
+    Type: String
+    Description: Kinesis Video Stream name
+
+  AthenaDatabase:
+    Type: String
+    Description: Athena database name
+
+  AthenaOutputBucket:
+    Type: String
+    Description: S3 bucket for Athena query results
+
+  AgentModelId:
+    Type: String
+    Description: Bedrock model ID for the agent
+
+  ImageModelId:
+    Type: String
+    Description: Bedrock model ID for image analysis
+
+Resources:
+  RuntimeExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: '*'
+        - PolicyName: ECRAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+        - PolicyName: AthenaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - athena:*
+                  - glue:*
+                  - s3:*
+                Resource: '*'
+        - PolicyName: KinesisVideoAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kinesisvideo:*
+                Resource: '*'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
+
+  AgentRuntime:
+    Type: AWS::BedrockAgentCore::Runtime
+    Properties:
+      AgentRuntimeName: house_agent
+      AgentRuntimeArtifact:
+        ContainerConfiguration:
+          ContainerUri: !Ref ContainerImageUri
+      ProtocolConfiguration: HTTP
+      RoleArn: !GetAtt RuntimeExecutionRole.Arn
+      NetworkConfiguration:
+        NetworkMode: PUBLIC
+      AuthorizerConfiguration:
+        CustomJWTAuthorizer:
+          DiscoveryUrl: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPoolId}/.well-known/openid-configuration'
+          AllowedClients:
+            - !Ref WebClientId
+            - !Ref M2MClientId
+      EnvironmentVariables:
+        AWS_REGION: !Ref AWS::Region
+        KVS_STREAM_NAME: !Ref KvsStreamName
+        ATHENA_DATABASE: !Ref AthenaDatabase
+        ATHENA_OUTPUT_BUCKET: !Ref AthenaOutputBucket
+        AGENT_MODEL_ID: !Ref AgentModelId
+        IMAGE_MODEL_ID: !Ref ImageModelId
+
+Outputs:
+  RuntimeArn:
+    Description: AgentCore Runtime ARN
+    Value: !GetAtt AgentRuntime.AgentRuntimeArn

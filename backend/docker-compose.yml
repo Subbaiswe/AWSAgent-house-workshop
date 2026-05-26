@@ -1,0 +1,15 @@
+services:
+  workshop-agent:
+    build: .
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env
+    environment:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+    volumes:
+      - .:/app
+    command: uvicorn app:app --host 0.0.0.0 --port 8080 --reload --no-access-log
+    restart: unless-stopped
