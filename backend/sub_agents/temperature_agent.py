@@ -108,6 +108,11 @@ ORDER BY time_recorded DESC
 """
 
 
+class TempAgentResponse(BaseModel):
+    """Structured response from the temperature agent"""
+    response: str = Field(description="Agent response in markdown")
+    sql: str = Field(description="The SQL query that answered the question")
+
 @tool
 async def temperature_agent(question: str) -> AsyncIterator:
     """Ask questions about current and historical temperature and humidity data
@@ -144,6 +149,7 @@ async def temperature_agent(question: str) -> AsyncIterator:
             system_prompt=TEMP_HISTORY_AGENT_PROMPT,
             callback_handler=None,
             tools=[query_temperature, current_time],
+            structured_output_model=TempAgentResponse,
         )
 
         result = None

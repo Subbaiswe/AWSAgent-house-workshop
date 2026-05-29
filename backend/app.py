@@ -15,6 +15,7 @@ from strands.models.bedrock import BedrockModel
 from strands_tools import current_time
 from tools.camera_tools import query_camera, get_video
 from tools.temp_tools import query_temperature
+from sub_agents.temperature_agent import temperature_agent
 from streaming import parse_agent_events
 from utils import get_user_id
 
@@ -71,6 +72,7 @@ def get_or_create_agent(session_id: str, user_id: str) -> Agent:
                 query_camera,
                 query_temperature,
                 get_video,
+                temperature_agent,
             ],
             callback_handler=None,
             trace_attributes={
